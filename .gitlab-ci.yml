@@ -1,8 +1,6 @@
 image: python:3.12-slim
 
-stages:
-  - quality
-  - test
+stages: [quality, test]
 
 before_script:
   - pip install --quiet -r requirements.txt
@@ -20,4 +18,4 @@ docstrings:
 tests:
   stage: test
   script:
-    - pytest -v
+    - python -m pytest -v

@@ -25,4 +25,4 @@ jobs:
         run: pydocstyle bujo tests
 
       - name: Exécuter les tests (pytest)
-        run: pytest -v
+        run: python -m pytest -v
