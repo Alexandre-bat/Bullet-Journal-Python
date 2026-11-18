@@ -1,6 +1,8 @@
 """Exceptions personnalisées de la bibliothèque Bullet Journal."""
 
 # Erreur de base de la bibliothèque Bullet Journal.
+
+
 class BujoError(Exception):
     pass
 
