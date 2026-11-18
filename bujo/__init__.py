@@ -1,8 +1,9 @@
-"""Bullet Journal — bibliothèque Python de gestion d'un journal personnel.
+"""Bullet Journal — Bibliothèque Python de gestion d'un journal personnel.
 
 Ce module est la façade du package : tout ce qui sert au quotidien
 s'importe directement depuis ``bujo``, sans avoir à connaître les
-sous-modules ``entry``, ``journal``, ``exceptions`` et ``cli``.
+sous-modules ``entry``, ``journal``, ``persistence``, ``exceptions``
+et ``cli``.
 
 Recettes d'utilisation
 ----------------------
@@ -20,19 +21,26 @@ Recettes d'utilisation
    retrouver ou retirer une entrée, ``len(journal)`` et
    ``journal.ids()`` pour l'inventaire.
 5. Afficher une entrée : ``print(entry)`` affiche le symbole du rapid
-   logging suivi du nom ; ``entry.symbol`` donne seul ce symbole.
+   logging, suivi du signifiant éventuel (``*`` ou ``!``), puis du nom ;
+   ``entry.symbol`` donne seul le symbole, ``entry.signifier`` seul le
+   signifiant.
 6. Logger l'exécution : ``setup_logging()`` écrit un log complet et un
    log d'erreurs dans des fichiers.
-7. Jouer avec le menu : ``main()`` lance le programme interactif, ce
+7. Conserver le journal : ``save_journal(journal, "journal.json")``
+   écrit tout le journal dans un fichier JSON, et
+   ``load_journal("journal.json")`` en rend un nouveau ``Journal``
+   avec ses entrées, identifiants, états, signifiants et heures.
+8. Jouer avec le menu : ``main()`` lance le programme interactif, ce
    que fait déjà ``python -m bujo``.
-8. Gérer les erreurs : intercepter ``BujoError`` (ou une de ses
+9. Gérer les erreurs : intercepter ``BujoError`` (ou une de ses
    sous-classes) autour des appels qui manipulent le journal.
 
 Entrées et états (``bujo.entry``)
 ---------------------------------
 - ``Entry`` : classe abstraite de base, ancêtre des trois types ; elle
   porte l'identifiant uuid, le nom validé, la description, la date de
-  création et la date du log. On ne l'instancie jamais directement.
+  création, la date du log et le signifiant facultatif. On ne
+  l'instancie jamais directement.
 - ``Task`` : tâche à faire, avec un cycle de vie (``state``) et quatre
   transitions. C'est le type le plus utilisé du journal.
 - ``Event`` : événement daté, avec une heure facultative (``at``).
@@ -43,11 +51,21 @@ Entrées et états (``bujo.entry``)
   par ``Task`` pour refuser un passage d'état illogique.
 - ``SYMBOLS_BY_STATE`` : correspondance entre un état et son symbole
   rapid logging (``•``, ``×``, ``>``, ``<``, ``~``).
+- ``SIGNIFIERS`` : signifiants facultatifs collés au symbole d'une
+  entrée (``*`` priorité, ``!`` idée, inspiration).
 
 Organisation (``bujo.journal``)
 -------------------------------
-- ``Journal`` : conteneur des entrées, indexées par identifiant.
+- ``Journal`` : conteneur des entrées, indexées par identifiant ; il
+  offre ``complete_task``, ``migrate_task``, ``plan_task`` et
+  ``discard_task`` pour faire avancer une tâche depuis son identifiant.
 - ``setup_logging`` : configuration des deux fichiers de log.
+
+Persistance (``bujo.persistence``)
+----------------------------------
+- ``save_journal`` : écrit le journal complet dans un fichier JSON.
+- ``load_journal`` : relit ce fichier et reconstruit le journal
+  (mêmes identifiants, états, signifiants et heures).
 
 Exceptions (``bujo.exceptions``)
 --------------------------------
@@ -57,6 +75,9 @@ Exceptions (``bujo.exceptions``)
 - ``InvalidDateError`` : date, datetime ou heure de mauvais type.
 - ``InvalidStateTransitionError`` : changement d'état interdit, ou
   opération réservée aux tâches demandée sur un autre type.
+- ``InvalidSignifierError`` : signifiant hors de ``SIGNIFIERS``.
+- ``PersistenceError`` : fichier de journal illisible, invalide ou
+  incompatible.
 
 Menu (``bujo.cli``)
 -------------------
@@ -69,6 +90,7 @@ Menu (``bujo.cli``)
 
 from bujo.entry import (
     ALLOWED_TRANSITIONS,
+    SIGNIFIERS,
     SYMBOLS_BY_STATE,
     Entry,
     Event,
@@ -81,9 +103,12 @@ from bujo.exceptions import (
     EmptyNameError,
     EntryNotFoundError,
     InvalidDateError,
+    InvalidSignifierError,
     InvalidStateTransitionError,
+    PersistenceError,
 )
 from bujo.journal import Journal, setup_logging
+from bujo.persistence import load_journal, save_journal
 from bujo.cli import MENU, clear_screen, main, show_choice, take_choice
 
 __version__ = "0.1.0"
@@ -97,15 +122,21 @@ __all__ = [
     "TaskState",
     "ALLOWED_TRANSITIONS",
     "SYMBOLS_BY_STATE",
+    "SIGNIFIERS",
     # Organisation du journal
     "Journal",
     "setup_logging",
+    # Persistance
+    "save_journal",
+    "load_journal",
     # Exceptions
     "BujoError",
     "EntryNotFoundError",
     "EmptyNameError",
     "InvalidDateError",
     "InvalidStateTransitionError",
+    "InvalidSignifierError",
+    "PersistenceError",
     # Menu en ligne de commande
     "MENU",
     "main",

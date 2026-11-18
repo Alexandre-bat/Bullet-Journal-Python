@@ -31,6 +31,11 @@ bujo.journal — organisation du journal
 
 .. automodule:: bujo.journal
 
+bujo.persistence — sauvegarde et chargement JSON
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: bujo.persistence
+
 bujo.exceptions — exceptions personnalisées
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
