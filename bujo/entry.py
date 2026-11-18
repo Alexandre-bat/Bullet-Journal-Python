@@ -10,6 +10,7 @@ from enum import Enum
 from bujo.exceptions import (
     EmptyNameError,
     InvalidDateError,
+    InvalidSignifierError,
     InvalidStateTransitionError,
 )
 
@@ -35,6 +36,13 @@ ALLOWED_TRANSITIONS: dict[TaskState, set[TaskState]] = {
     },
 }
 
+# Signifiants du rapid logging : symboles facultatifs ajoutés au
+# symbole d'une entrée pour en souligner la portée.
+SIGNIFIERS: dict[str, str] = {
+    "*": "priorité",
+    "!": "idée, inspiration",
+}
+
 # Symboles du rapid logging associés aux états d'une tâche.
 SYMBOLS_BY_STATE: dict[TaskState, str] = {
     TaskState.TODO: "•",
@@ -58,13 +66,16 @@ class Entry(ABC):
         name: str,
         description: str = "",
         log_date: date | None = None,
+        signifier: str | None = None,
+        entry_id: str | None = None,
     ) -> None:
-        """Construire une entrée avec un identifiant unique généré."""
-        self._id: str = str(uuid.uuid4())
+        """Construire une entrée, avec un identifiant généré ou imposé."""
+        self._id: str = entry_id if entry_id is not None else str(uuid.uuid4())
         self._name: str = self._check_name(name)
         self.description: str = description
         self.created_at: datetime = datetime.now()
         self.log_date: date = self._check_date(log_date) or date.today()
+        self.signifier: str | None = self._check_signifier(signifier)
 
     @property
     def id(self) -> str:
@@ -90,6 +101,18 @@ class Entry(ABC):
         self._log_date = self._check_date(value) or date.today()
 
     @staticmethod
+    def _check_signifier(value: str | None) -> str | None:
+        """Valider le signifiant : None ou un symbole de SIGNIFIERS."""
+        if value is None:
+            return None
+        if not isinstance(value, str) or value not in SIGNIFIERS:
+            raise InvalidSignifierError(
+                f"Signifiant inconnu : {value!r}. Signifiants admis : "
+                + ", ".join(SIGNIFIERS) + "."
+            )
+        return value
+
+    @staticmethod
     def _check_name(name: str) -> str:
         """Valider le nom : une chaîne non vide est obligatoire."""
         if not isinstance(name, str) or not name.strip():
@@ -110,9 +133,14 @@ class Entry(ABC):
     def symbol(self) -> str:
         """Symbole rapid logging de l'entrée."""
 
+    def _display_name(self) -> str:
+        """Nom tel qu'affiché par la représentation rapid logging."""
+        return self.name
+
     def __str__(self) -> str:
-        """Représentation rapid logging : symbole suivi du nom."""
-        return f"{self.symbol} {self.name}"
+        """Représentation rapid logging : symbole, signifiant, nom."""
+        mark = self.signifier or ""
+        return f"{self.symbol}{mark} {self._display_name()}"
 
 
 class Task(Entry):
@@ -123,10 +151,18 @@ class Task(Entry):
         name: str,
         description: str = "",
         log_date: date | None = None,
+        signifier: str | None = None,
+        entry_id: str | None = None,
     ) -> None:
         """Construire une tâche, initialement à faire."""
-        super().__init__(name, description, log_date)
+        super().__init__(name, description, log_date, signifier, entry_id)
         self._state: TaskState = TaskState.TODO
+
+    def _display_name(self) -> str:
+        """Nom barré (~~texte~~) quand la tâche est abandonnée."""
+        if self._state is TaskState.DISCARDED:
+            return f"~~{self.name}~~"
+        return self.name
 
     @property
     def state(self) -> TaskState:
@@ -174,9 +210,11 @@ class Event(Entry):
         description: str = "",
         log_date: date | None = None,
         at: time | None = None,
+        signifier: str | None = None,
+        entry_id: str | None = None,
     ) -> None:
         """Construire un événement daté, avec heure facultative."""
-        super().__init__(name, description, log_date)
+        super().__init__(name, description, log_date, signifier, entry_id)
         if at is not None and not isinstance(at, time):
             raise InvalidDateError("at doit être un datetime.time.")
         self.at: time | None = at

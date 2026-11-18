@@ -19,3 +19,11 @@ class InvalidDateError(BujoError):
 
 class InvalidStateTransitionError(BujoError):
     """La transition d'état demandée est interdite pour une tâche."""
+
+
+class InvalidSignifierError(BujoError):
+    """Le signifiant demandé ne fait pas partie des signifiants connus."""
+
+
+class PersistenceError(BujoError):
+    """Le journal n'a pu être sauvegardé ou chargé depuis son fichier."""

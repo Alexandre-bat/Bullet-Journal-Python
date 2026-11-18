@@ -58,6 +58,52 @@ class TestJournal:
         journal.complete_task(task.id)
         assert task.state is TaskState.DONE
 
+    def test_add_task_avec_signifiant(self, journal):
+        task = journal.add_task("Urgent", signifier="*")
+        assert task.signifier == "*"
+        assert str(task) == "\u2022* Urgent"
+
+
+class TestTransitionsViaJournal:
+    """Tests des changements d'etat demandes depuis le journal."""
+
+    @pytest.mark.parametrize(
+        ("methode", "attendu", "symbole"),
+        [
+            ("migrate_task", TaskState.MIGRATED, ">"),
+            ("plan_task", TaskState.PLANNED, "<"),
+            ("discard_task", TaskState.DISCARDED, "~"),
+        ],
+    )
+    def test_transition_depuis_le_journal(self, journal, methode, attendu,
+                                          symbole):
+        task = journal.add_task("Tache")
+        result = getattr(journal, methode)(task.id)
+        assert result is task
+        assert task.state is attendu
+        assert task.symbol == symbole
+
+    @pytest.mark.parametrize(
+        "methode",
+        ["complete_task", "migrate_task", "plan_task", "discard_task"],
+    )
+    def test_transition_interdite_sur_une_note(self, journal, methode):
+        note = Note("Pensee")
+        journal.add_entry(note)
+        with pytest.raises(InvalidStateTransitionError):
+            getattr(journal, methode)(note.id)
+
+    def test_transition_sur_entree_inconnue(self, journal):
+        with pytest.raises(EntryNotFoundError):
+            journal.migrate_task("inconnu")
+
+    def test_taches_transitionnees_quittent_en_cours(self, journal):
+        t1 = journal.add_task("Une")
+        t2 = journal.add_task("Deux")
+        journal.migrate_task(t1.id)
+        journal.discard_task(t2.id)
+        assert journal.open_tasks() == []
+
 
 class TestRecherche:
     """Tests des listes et de la recherche secondaire par nom."""
@@ -90,6 +136,10 @@ class TestRecherche:
                                 log_date=date(2026, 12, 15)))
         du_jour = journal.entries_of_day(jour)
         assert [e.name for e in du_jour] == ["Tache du jour"]
+
+    def test_entrées_du_jour_jour_invalide(self, journal):
+        with pytest.raises(TypeError):
+            journal.entries_of_day("2026-12-16")
 
     def test_types_d_entrees_mixtes(self, journal):
         journal.add_task("T")

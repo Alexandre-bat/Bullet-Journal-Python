@@ -4,10 +4,11 @@ from datetime import date, datetime, time
 
 import pytest
 
-from bujo.entry import Event, Note, Task, TaskState
+from bujo.entry import Event, Note, SIGNIFIERS, Task, TaskState
 from bujo.exceptions import (
     EmptyNameError,
     InvalidDateError,
+    InvalidSignifierError,
     InvalidStateTransitionError,
 )
 
@@ -32,6 +33,11 @@ class TestEntry:
 
     def test_nom_nettoye(self):
         assert Task("  Tache  ").name == "Tache"
+
+    def test_nom_modifier_par_setter(self):
+        task = Task("Ancien")
+        task.name = "Nouveau"
+        assert task.name == "Nouveau"
 
     def test_dates_par_defaut(self):
         task = Task("Tache")
@@ -110,3 +116,35 @@ class TestEventNote:
 
     def test_note_n_a_pas_d_etat(self):
         assert not hasattr(Note("Pensee"), "complete")
+
+
+class TestSignifiants:
+    """Tests des signifiants de priorite et d'idee."""
+
+    def test_signifiants_connus(self):
+        assert set(SIGNIFIERS) == {"*", "!"}
+
+    def test_signifiant_par_defaut_aucun(self):
+        assert Task("Tache").signifier is None
+
+    @pytest.mark.parametrize("signe", ["*", "!"])
+    def test_signifiant_valide(self, signe):
+        assert Task("Tache", signifier=signe).signifier == signe
+
+    @pytest.mark.parametrize("signe", ["?", "", "!!", 42])
+    def test_signifiant_invalide(self, signe):
+        with pytest.raises(InvalidSignifierError):
+            Task("Tache", signifier=signe)
+
+    def test_signifiant_sur_note_et_evenement(self):
+        assert Note("Idee", signifier="!").signifier == "!"
+        assert Event("Reunion", signifier="*").signifier == "*"
+
+    def test_str_affiche_signifiant_apres_symbole(self):
+        assert str(Note("Idee", signifier="!")) == "\u2013! Idee"
+        assert str(Task("Urgent", signifier="*")) == "\u2022* Urgent"
+
+    def test_str_tache_abandonnee_est_barree(self):
+        task = Task("Sans objet")
+        task.discard()
+        assert str(task) == "~ ~~Sans objet~~"

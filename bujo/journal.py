@@ -61,9 +61,10 @@ class Journal:
         name: str,
         description: str = "",
         log_date: date | None = None,
+        signifier: str | None = None,
     ) -> Task:
         """Crée une tâche, l'ajoute au journal et la retourne."""
-        task = Task(name, description, log_date)
+        task = Task(name, description, log_date, signifier)
         self.add_entry(task)
         return task
 
@@ -84,16 +85,42 @@ class Journal:
         logger.debug("Entrée %s supprimée.", entry_id)
         return entry
 
-    def complete_task(self, entry_id: str) -> Task:
-        """Marque une tâche comme terminée."""
+    def _task(self, entry_id: str) -> Task:
+        """Retourne l'entrée demandée après avoir vérifié sa nature."""
         entry = self.get_entry(entry_id)
         if not isinstance(entry, Task):
             raise InvalidStateTransitionError(
-                "Seule une tâche peut être terminée."
+                "Seule une tâche peut changer d'état."
             )
-        entry.complete()
-        logger.debug("Tâche %s terminée.", entry_id)
         return entry
+
+    def complete_task(self, entry_id: str) -> Task:
+        """Marque une tâche comme terminée (symbole ×)."""
+        task = self._task(entry_id)
+        task.complete()
+        logger.debug("Tâche %s terminée.", entry_id)
+        return task
+
+    def migrate_task(self, entry_id: str) -> Task:
+        """Marque une tâche comme migrée (symbole >)."""
+        task = self._task(entry_id)
+        task.migrate()
+        logger.debug("Tâche %s migrée.", entry_id)
+        return task
+
+    def plan_task(self, entry_id: str) -> Task:
+        """Marque une tâche comme planifiée (symbole <)."""
+        task = self._task(entry_id)
+        task.plan()
+        logger.debug("Tâche %s planifiée.", entry_id)
+        return task
+
+    def discard_task(self, entry_id: str) -> Task:
+        """Marque une tâche comme abandonnée (symbole ~)."""
+        task = self._task(entry_id)
+        task.discard()
+        logger.debug("Tâche %s abandonnée.", entry_id)
+        return task
 
     def open_tasks(self) -> list[Task]:
         """Retourne les tâches restant à faire, dans l'ordre d'ajout."""
