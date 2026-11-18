@@ -17,3 +17,12 @@ htmlcov/
 
 # Documentation générée
 docs/_build/
+
+# Fichiers d'exécution
+*.log
+# Sauf les logs d'exemple livrés avec le projet
+!bujo_debug.log
+!bujo_error.log
+
+# Sujets / consignes hors dépôt
+*.docx
