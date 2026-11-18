@@ -1,34 +1,57 @@
 # Bullet-Journal-Python
-Ce projet consiste à développer une bibliothèque Python fiable et réutilisable permettant de gérer l'organisation personnelle selon la méthode du Bullet Journal (BuJo), créée par Ryder Carroll.   
---
+
+Ce projet consiste à développer une bibliothèque Python fiable et réutilisable
+permettant de gérer l'organisation personnelle selon la méthode du Bullet
+Journal (BuJo), créée par Ryder Carroll.
 
 ## Architecture du projet
 
 ```
 Bullet-Journal-PY/
-  bujo/                  # package principal de la bibliothèque
-    __init__.py          # API publique : exports des classes et exceptions, __version__
-    __main__.py          # point d'entrée : python -m bujo
-    entry.py             # modèle des entrées : Entry (classe abstraite), Task, Event, Note, TaskState
-    journal.py           # organisation du journal : Journal (entrées indexées par id), setup_logging
-    exceptions.py        # exceptions personnalisées : BujoError, EntryNotFoundError, EmptyNameError,
-                         #   InvalidDateError, InvalidStateTransitionError
-    cli.py               # interface en ligne de commande : main(), show_choice(), take_choice()
-                         #   et affichage des logs avec les symboles du rapid logging
-  tests/                 # tests unitaires pytest
-  docs/                  # documentation Sphinx (autodoc des modules)
-  requirements.txt       # dépendances (environnement Anaconda)
+├── bujo/                         # package principal de la bibliothèque
+│   ├── __init__.py               # API publique : exports, __version__, recettes d'usage
+│   ├── __main__.py               # point d'entrée : python -m bujo
+│   ├── entry.py                  # modèle (abstraction, héritage) : Entry, Task, Event,
+│   │                             #   Note, TaskState, ALLOWED_TRANSITIONS, SYMBOLS_BY_STATE
+│   ├── journal.py                # journal : Journal (entrées indexées par id) + setup_logging
+│   ├── exceptions.py             # exceptions : BujoError, EntryNotFoundError, EmptyNameError,
+│   │                             #   InvalidDateError, InvalidStateTransitionError
+│   └── cli.py                    # affichage / CLI : main(), MENU, show_choice(),
+│                                 #   take_choice(), clear_screen()
+├── tests/                        # tests unitaires pytest
+│   ├── test_entry.py             # cycle de vie des tâches, cas d'erreur du modèle
+│   └── test_journal.py           # ajout, suppression, recherche, entrées du jour
+├── docs/                         # documentation Sphinx (autodoc des modules)
+│   ├── conf.py                   # configuration Sphinx (autodoc, napoleon, langue fr)
+│   ├── index.rst                 # page d'accueil : autodoc de tous les modules
+│   ├── _static/                  # ressources statiques (répertoire réservé)
+│   ├── _templates/               # templates de thèmes (répertoire réservé)
+│   └── _build/                   # HTML généré (ignoré par Git)
+├── .gitlab-ci.yml                # pipeline CI : flake8, pydocstyle, pytest
+├── setup.cfg                     # configuration de flake8, pydocstyle et pytest
+├── Dockerfile                    # image Docker de l'application
+├── requirements.txt              # dépendances (tests, lint, couverture, docs)
+└── .gitignore                    # caches, logs, documentation générée, docx hors dépôt
 ```
 
-## Installation
+Les modules attendus par le cahier des charges sont ainsi répartis : modèle
+(`entry.py`), journal (`journal.py`), affichage (`cli.py`), exceptions
+(`exceptions.py`). La persistance n'est pas encore implémentée : le journal
+vit en mémoire (voir la to-do).
 
-Avec Anaconda (ou tout autre gestionnaire d'environnement) :
+## Installation et utilisation
+
+Le projet s'utilise avec Docker (l'image `python:3.12-slim` fournit Python
+et les dépendances de `requirements.txt`) :
 
 ```bash
-conda create -n bujo python=3.12
-conda activate bujo
-pip install -r requirements.txt
+docker build -t bujo .
+docker run --rm -it bujo
 ```
+
+Le menu permet d'ajouter une tâche, un événement ou une note, de marquer une
+tâche comme terminée, de supprimer une entrée et d'afficher les tâches en
+cours. Les identifiants (uuid) peuvent être saisis partiellement (préfixe).
 
 ### Symboles du rapid logging (utilisés par l'affichage CLI)
 
@@ -44,49 +67,60 @@ pip install -r requirements.txt
 | * | Signifiant : priorité |
 | ! | Signifiant : idée, inspiration |
 
-### Utilisation
+### En bibliothèque
 
-```bash
-python -m bujo
+```python
+from datetime import time
+
+from bujo import Event, Journal, Note
+
+journal = Journal("Mon journal")
+task = journal.add_task("Ranger le bureau", "Trier les papiers")
+journal.add_entry(Event("Réunion", at=time(10, 30)))
+journal.add_entry(Note("Idée de projet"))
+journal.complete_task(task.id)
+print(*journal.open_tasks(), sep="\n")
 ```
-
-### Avec Docker
-
-```bash
-docker build -t bujo .
-docker run --rm -it bujo
-```
-
-L'image est basée sur `python:3.12-slim` : c'est elle qui fournit Python
-(Python n'est pas une dépendance pip et ne figure donc pas dans `requirements.txt`).
 
 ## Documentation
 
 Générer la documentation HTML avec Sphinx (autodoc de tous les modules) :
 
 ```bash
-sphinx-build -b html docs docs/_build/html
+docker run --rm -v "$PWD":/app bujo \
+  sphinx-build -b html docs docs/_build/html
 ```
 
 Puis ouvrir `docs/_build/html/index.html`.
 
+## Tests
+
+```bash
+docker run --rm bujo python -m pytest -v
+```
+
+32 tests unitaires couvrent le modèle des entrées (`tests/test_entry.py`) et
+le journal (`tests/test_journal.py`) : cycle de vie des tâches, transitions
+interdites, cas d'erreur, recherche par nom.
+
 ## Journalisation (logging)
 
-Chaque exécution alimente deux fichiers inclus dans le dépôt :
+Chaque exécution alimente deux fichiers de log créés dans le répertoire
+courant (ignorés par Git via `.gitignore`) :
 
 - `bujo_debug.log` : toutes les actions (DEBUG et plus)
 - `bujo_error.log` : uniquement les erreurs (ERROR et CRITICAL)
 
 ## CI/CD
 
-Le pipeline (`.gitlab-ci.yml`, exécuté à chaque push) vérifie :
+Le pipeline GitLab CI (`.gitlab-ci.yml`, exécuté à chaque push) vérifie :
 
 1. le respect de PEP 8 (`flake8`) ;
 2. la présence des docstrings (`pydocstyle`) ;
 3. l'exécution de tous les tests unitaires (`pytest`).
 
-Un workflow GitHub Actions équivalent (`.github/workflows/ci.yml`) est
-fourni si le dépôt est répliqué sur GitHub.
+La configuration des outils (flake8, pydocstyle, pytest) est centralisée dans
+`setup.cfg`.
 
 ## Statut — Niveau 1 (socle obligatoire)
 
@@ -105,24 +139,25 @@ fourni si le dépôt est répliqué sur GitHub.
 - ✅ Tests pytest (cycle de vie, cas d'erreur)
 - ✅ Documentation Sphinx
 - ✅ Pipeline CI à chaque push
+- ✅ Environnement reproductible (Docker + requirements.txt)
 
-## To-do 
+## Perspective d'amélioration
+
+Toutes les fonctionnalités du niveau 1 et la plupart des exigences
+techniques sont livrées (voir le statut ci-dessus). Il reste :
+
 ### Fonctionnalités
-1. Bibliothèque Python de Bullet Journal permettant d'**ajouter une tâche** au journal du jour (nom + description minimum), la **marquer terminée**, la **supprimer**, et **afficher les tâches en cours**
-2. **Cycle de vie des tâches** : à faire, terminée, migrée, planifiée, abandonnée
-3. **Trois types d'entrées** : tâches, événements (date/heure), notes
-4. **Identifiant unique** par entrée (le nom n'est qu'une recherche secondaire)
+1. **Persistance** : module de sauvegarde / chargement du journal —
+   aujourd'hui les entrées vivent en mémoire et sont perdues à la fin
+   du programme
+2. Compléter le CLI avec les transitions encore réservées à la
+   bibliothèque : migrer, planifier et abandonner une tâche
+3. Mesurer la **couverture de tests** (`coverage`, déjà présent dans
+   `requirements.txt`) et l'intégrer au pipeline CI
 
 ### Exigences techniques
-1. Structure en packages/modules (modèle, journal, persistance, affichage, exceptions), README.md
-2. Environnement Anaconda + requirements.txt
-3. Git avec commits explicites, branches et Merge Requests
-4. POO : classe abstraite d'entrée + classes dérivées + classe Journal, encapsulation/héritage
-5. Type hinting, PEP 8, exceptions personnalisées (entrée introuvable, nom vide, transition d'état interdite…)
-6. Module logging : fichier de debug + fichier dédié aux erreurs
-7. Tests unitaires pytest approfondis (cycle de vie, migration, cas d'erreur)
-8. Docstrings + commentaires, documentation (Sphinx possible)
-9. Pipeline CI à chaque push : PEP 8, vérification des docstrings, tests
+1. Workflow Git avec **branches et Merge Requests** (les commits
+   explicites sur la branche principale sont déjà en place)
 
 ### Livrable :
 Dépôt GitLab du projet (code source, documentation Sphinx, fichiers de
