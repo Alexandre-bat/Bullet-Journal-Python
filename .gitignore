@@ -23,6 +23,8 @@ docs/_build/
 # Sauf les logs d'exemple livrés avec le projet
 !bujo_debug.log
 !bujo_error.log
+journal.json
+.coverage
 
 # Sujets / consignes hors dépôt
 *.docx
