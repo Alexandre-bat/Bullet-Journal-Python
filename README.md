@@ -4,6 +4,8 @@ Ce projet consiste à développer une bibliothèque Python fiable et réutilisab
 permettant de gérer l'organisation personnelle selon la méthode du Bullet
 Journal (BuJo), créée par Ryder Carroll.
 
+# Le projet
+
 ## Architecture du projet
 
 ```
@@ -32,8 +34,8 @@ Bullet-Journal-PY/
 │   ├── _static/                  # ressources statiques (répertoire réservé)
 │   ├── _templates/               # templates de thèmes (répertoire réservé)
 │   └── _build/                   # HTML généré (ignoré par Git)
-├── .gitlab-ci.yml                # pipeline CI : flake8, pydocstyle, pytest
-├── setup.cfg                     # configuration de flake8, pydocstyle et pytest
+├── .gitlab-ci.yml                # pipeline CI : flake8, pytest
+├── setup.cfg                     # configuration de flake8 et pytest
 ├── Dockerfile                    # image Docker de l'application
 ├── requirements.txt              # dépendances (tests, lint, couverture, docs)
 └── .gitignore                    # caches, logs, documentation générée, docx hors dépôt
@@ -44,6 +46,35 @@ Les modules attendus par le cahier des charges sont ainsi répartis : modèle
 (`exceptions.py`), persistance (`persistence.py`). La persistance écrit le
 journal complet dans un fichier JSON (par défaut `journal.json`) et le
 recharge à l'identique : identifiants, états, signifiants, dates et heures.
+
+## Exceptions
+
+Toutes les erreurs de la bibliothèque héritent de `BujoError`, classe
+marqueur sans corps (`pass`) : ce qui compte est le **type** levé, pas le
+code. Un `except BujoError` capture ainsi toute la bibliothèque sans
+avaler les erreurs Python tierces (`ValueError`, `TypeError`…).
+
+| Exception | Levée quand… |
+|---|---|
+| `EntryNotFoundError` | l'identifiant ne correspond à aucune entrée |
+| `EmptyNameError` | le nom d'une entrée est vide |
+| `InvalidDateError` | la date ou l'heure fournie est invalide |
+| `InvalidStateTransitionError` | la transition d'état d'une tâche est interdite |
+| `InvalidSignifierError` | le signifiant n'est pas `*` ou `!` |
+| `PersistenceError` | le fichier JSON du journal n'a pu être lu ou écrit |
+
+```python
+from bujo import Journal, BujoError, EntryNotFoundError
+
+try:
+    journal.complete_task("abc123")
+except EntryNotFoundError:
+    print("Entrée inconnue.")
+except BujoError as exc:
+    print(f"Erreur du journal : {exc}")
+```
+
+# Lancer l'application
 
 ## Installation et utilisation
 
@@ -101,16 +132,15 @@ save_journal(journal, "journal.json")
 journal = load_journal("journal.json")
 ```
 
-## Documentation
+### Journalisation (logging)
 
-Générer la documentation HTML avec Sphinx (autodoc de tous les modules) :
+Chaque exécution alimente deux fichiers de log créés dans le répertoire
+courant (ignorés par Git via `.gitignore`) :
 
-```bash
-docker run --rm -v "$PWD":/app bujo \
-  sphinx-build -b html docs docs/_build/html
-```
+- `bujo_debug.log` : toutes les actions (DEBUG et plus)
+- `bujo_error.log` : uniquement les erreurs (ERROR et CRITICAL)
 
-Puis ouvrir `docs/_build/html/index.html`.
+# Qualité : tests, documentation et CI/CD
 
 ## Tests
 
@@ -127,28 +157,32 @@ signifiants, transitions interdites, aller-retour JSON, cas d'erreur,
 recherche par nom. La couverture est mesurée par `coverage` et imposée
 par le pipeline CI.
 
-## Journalisation (logging)
+## Documentation
 
-Chaque exécution alimente deux fichiers de log créés dans le répertoire
-courant (ignorés par Git via `.gitignore`) :
+Générer la documentation HTML avec Sphinx (autodoc de tous les modules) :
 
-- `bujo_debug.log` : toutes les actions (DEBUG et plus)
-- `bujo_error.log` : uniquement les erreurs (ERROR et CRITICAL)
+```bash
+docker run --rm -v "$PWD":/app bujo \
+  sphinx-build -b html docs docs/_build/html
+```
+
+Puis ouvrir `docs/_build/html/index.html`.
 
 ## CI/CD
 
 Le pipeline GitLab CI (`.gitlab-ci.yml`, exécuté à chaque push) vérifie :
 
 1. le respect de PEP 8 (`flake8`) ;
-2. la présence des docstrings (`pydocstyle`) ;
-3. l'exécution de tous les tests unitaires sous `coverage`, avec un
+2. l'exécution de tous les tests unitaires sous `coverage`, avec un
    seuil minimal de couverture (`--fail-under`) et le pourcentage
    affiché dans GitLab.
 
-La configuration des outils (flake8, pydocstyle, pytest) est centralisée dans
+La configuration des outils (flake8, pytest) est centralisée dans
 `setup.cfg`.
 
-## Statut — Niveau 1 (socle obligatoire)
+# État d'avancement
+
+## Statut — Niveau 1
 
 - ✅ Ajouter une tâche (nom + description) dans le journal du jour
 - ✅ Marquer une tâche comme terminée
@@ -159,9 +193,10 @@ La configuration des outils (flake8, pydocstyle, pytest) est centralisée dans
 - ✅ Trois types d'entrées : tâches, événements (date/heure), notes
 - ✅ Identifiant unique par entrée, recherche par nom secondaire
 - ✅ POO : classe abstraite `Entry`, héritage, encapsulation
-- ✅ Type hinting, PEP 8, docstrings sur modules/classes/méthodes
-- ✅ Exceptions personnalisées (introuvable, nom vide, date invalide,
-  transition d'état interdite)
+- ✅ Type hinting, PEP 8, commentaires au-dessus des modules/classes/méthodes
+- ✅ Exceptions personnalisées héritant de `BujoError` (entrée introuvable,
+  nom vide, date invalide, transition d'état interdite, signifiant inconnu,
+  erreur de persistance)
 - ✅ Logs debug + erreurs dédiés
 - ✅ Persistance JSON : sauvegarde et chargement à l'identique
 - ✅ Transitions complètes dans le menu : terminer, migrer, planifier, abandonner
