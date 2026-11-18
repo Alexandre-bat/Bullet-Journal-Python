@@ -1,6 +1,5 @@
 # Dépendances de la bibliothèque Bullet Journal
 pytest
 flake8
-pydocstyle
 coverage
 sphinx

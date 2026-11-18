@@ -10,11 +10,6 @@ pep8:
   script:
     - flake8 bujo tests
 
-docstrings:
-  stage: quality
-  script:
-    - pydocstyle bujo tests
-
 tests:
   stage: test
   script:

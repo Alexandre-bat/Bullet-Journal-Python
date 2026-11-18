@@ -36,12 +36,14 @@ ALLOWED_TRANSITIONS: dict[TaskState, set[TaskState]] = {
     },
 }
 
+
 # Signifiants du rapid logging : symboles facultatifs ajoutés au
 # symbole d'une entrée pour en souligner la portée.
 SIGNIFIERS: dict[str, str] = {
     "*": "priorité",
     "!": "idée, inspiration",
 }
+
 
 # Symboles du rapid logging associés aux états d'une tâche.
 SYMBOLS_BY_STATE: dict[TaskState, str] = {
@@ -54,12 +56,10 @@ SYMBOLS_BY_STATE: dict[TaskState, str] = {
 
 
 class Entry(ABC):
-    """Classe abstraite d'une entrée du journal.
-
-    Une entrée possède un identifiant unique (uuid), un nom non vide,
-    une description, une date de création et la date du log auquel
-    elle appartient.
-    """
+    # Classe abstraite d'une entrée du journal.
+    # Une entrée possède un identifiant unique (uuid), un nom non vide,
+    # une description, une date de création et la date du log auquel
+    # elle appartient.
 
     def __init__(
         self,
@@ -78,13 +78,13 @@ class Entry(ABC):
         self.signifier: str | None = self._check_signifier(signifier)
 
     @property
+    # Identifiant unique et immuable de l'entrée.
     def id(self) -> str:
-        """Identifiant unique et immuable de l'entrée."""
         return self._id
 
     @property
+    # Nom de l'entrée.
     def name(self) -> str:
-        """Nom de l'entrée."""
         return self._name
 
     @name.setter
@@ -92,8 +92,8 @@ class Entry(ABC):
         self._name = self._check_name(value)
 
     @property
+    # Date du log auquel l'entrée appartient.
     def log_date(self) -> date:
-        """Date du log auquel l'entrée appartient."""
         return self._log_date
 
     @log_date.setter
@@ -101,8 +101,8 @@ class Entry(ABC):
         self._log_date = self._check_date(value) or date.today()
 
     @staticmethod
+    # Valider le signifiant : None ou un symbole de SIGNIFIERS.
     def _check_signifier(value: str | None) -> str | None:
-        """Valider le signifiant : None ou un symbole de SIGNIFIERS."""
         if value is None:
             return None
         if not isinstance(value, str) or value not in SIGNIFIERS:
@@ -120,8 +120,8 @@ class Entry(ABC):
         return name.strip()
 
     @staticmethod
+    # Valider une date de log (un datetime n'est pas accepté ici).
     def _check_date(value: date | None) -> date | None:
-        """Valider une date de log (un datetime n'est pas accepté ici)."""
         if value is None:
             return None
         if not isinstance(value, date) or isinstance(value, datetime):
@@ -130,15 +130,15 @@ class Entry(ABC):
 
     @property
     @abstractmethod
-    def symbol(self) -> str:
-        """Symbole rapid logging de l'entrée."""
+    # Symbole rapid logging de l'entrée.
+    def symbol(self) -> str: ...
 
+    # Nom tel qu'affiché par la représentation rapid logging.
     def _display_name(self) -> str:
-        """Nom tel qu'affiché par la représentation rapid logging."""
         return self.name
 
+    # Représentation rapid logging : symbole, signifiant, nom.
     def __str__(self) -> str:
-        """Représentation rapid logging : symbole, signifiant, nom."""
         mark = self.signifier or ""
         return f"{self.symbol}{mark} {self._display_name()}"
 
@@ -158,24 +158,24 @@ class Task(Entry):
         super().__init__(name, description, log_date, signifier, entry_id)
         self._state: TaskState = TaskState.TODO
 
+    # Nom barré (~~texte~~) quand la tâche est abandonnée.
     def _display_name(self) -> str:
-        """Nom barré (~~texte~~) quand la tâche est abandonnée."""
         if self._state is TaskState.DISCARDED:
             return f"~~{self.name}~~"
         return self.name
 
     @property
+    # État courant de la tâche.
     def state(self) -> TaskState:
-        """État courant de la tâche."""
         return self._state
 
     @property
+    # Symbole rapid logging selon l'état de la tâche.
     def symbol(self) -> str:
-        """Symbole rapid logging selon l'état de la tâche."""
         return SYMBOLS_BY_STATE[self._state]
 
+    # Applique une transition d'état, sinon lève une exception.
     def _transition_to(self, new_state: TaskState) -> None:
-        """Applique une transition d'état, sinon lève une exception."""
         allowed = ALLOWED_TRANSITIONS.get(self._state, set())
         if new_state not in allowed:
             raise InvalidStateTransitionError(
@@ -184,20 +184,20 @@ class Task(Entry):
             )
         self._state = new_state
 
+    # Marque la tâche comme terminée.
     def complete(self) -> None:
-        """Marque la tâche comme terminée."""
         self._transition_to(TaskState.DONE)
 
+    # Marque la tâche comme migrée vers un autre jour ou mois.
     def migrate(self) -> None:
-        """Marque la tâche comme migrée vers un autre jour ou mois."""
         self._transition_to(TaskState.MIGRATED)
 
+    # Marque la tâche comme planifiée dans le Future Log.
     def plan(self) -> None:
-        """Marque la tâche comme planifiée dans le Future Log."""
         self._transition_to(TaskState.PLANNED)
 
+    # Marque la tâche comme abandonnée, devenue sans objet.
     def discard(self) -> None:
-        """Marque la tâche comme abandonnée, devenue sans objet."""
         self._transition_to(TaskState.DISCARDED)
 
 
@@ -220,8 +220,8 @@ class Event(Entry):
         self.at: time | None = at
 
     @property
+    # Symbole rapid logging d'un événement.
     def symbol(self) -> str:
-        """Symbole rapid logging d'un événement."""
         return "○"
 
 
@@ -229,6 +229,6 @@ class Note(Entry):
     """Note simple, sans état ni date particulière."""
 
     @property
+    # Symbole rapid logging d'une note.
     def symbol(self) -> str:
-        """Symbole rapid logging d'une note."""
         return "–"
