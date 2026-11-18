@@ -15,6 +15,5 @@ env/
 .coverage
 htmlcov/
 
-# Logs de la bibliothèque
-bujo_debug.log
-bujo_error.log
+# Documentation générée
+docs/_build/
