@@ -12,15 +12,20 @@ Bullet-Journal-PY/
 │   ├── __init__.py               # API publique : exports, __version__, recettes d'usage
 │   ├── __main__.py               # point d'entrée : python -m bujo
 │   ├── entry.py                  # modèle (abstraction, héritage) : Entry, Task, Event,
-│   │                             #   Note, TaskState, ALLOWED_TRANSITIONS, SYMBOLS_BY_STATE
+│   │                             #   Note, TaskState, ALLOWED_TRANSITIONS, SYMBOLS_BY_STATE,
+│   │                             #   SIGNIFIERS
 │   ├── journal.py                # journal : Journal (entrées indexées par id) + setup_logging
+│   ├── persistence.py            # persistance : save_journal / load_journal (format JSON)
 │   ├── exceptions.py             # exceptions : BujoError, EntryNotFoundError, EmptyNameError,
-│   │                             #   InvalidDateError, InvalidStateTransitionError
+│   │                             #   InvalidDateError, InvalidStateTransitionError,
+│   │                             #   InvalidSignifierError, PersistenceError
 │   └── cli.py                    # affichage / CLI : main(), MENU, show_choice(),
 │                                 #   take_choice(), clear_screen()
 ├── tests/                        # tests unitaires pytest
 │   ├── test_entry.py             # cycle de vie des tâches, cas d'erreur du modèle
-│   └── test_journal.py           # ajout, suppression, recherche, entrées du jour
+│   ├── test_journal.py           # ajout, suppression, recherche, transitions, entrées du jour
+│   ├── test_persistence.py       # aller-retour JSON, états conservés, fichiers invalides
+│   └── test_cli.py               # menu complet piloté, invites, point d'entrée main()
 ├── docs/                         # documentation Sphinx (autodoc des modules)
 │   ├── conf.py                   # configuration Sphinx (autodoc, napoleon, langue fr)
 │   ├── index.rst                 # page d'accueil : autodoc de tous les modules
@@ -36,8 +41,9 @@ Bullet-Journal-PY/
 
 Les modules attendus par le cahier des charges sont ainsi répartis : modèle
 (`entry.py`), journal (`journal.py`), affichage (`cli.py`), exceptions
-(`exceptions.py`). La persistance n'est pas encore implémentée : le journal
-vit en mémoire (voir la to-do).
+(`exceptions.py`), persistance (`persistence.py`). La persistance écrit le
+journal complet dans un fichier JSON (par défaut `journal.json`) et le
+recharge à l'identique : identifiants, états, signifiants, dates et heures.
 
 ## Installation et utilisation
 
@@ -49,9 +55,11 @@ docker build -t bujo .
 docker run --rm -it bujo
 ```
 
-Le menu permet d'ajouter une tâche, un événement ou une note, de marquer une
-tâche comme terminée, de supprimer une entrée et d'afficher les tâches en
-cours. Les identifiants (uuid) peuvent être saisis partiellement (préfixe).
+Le menu permet d'ajouter une tâche, un événement ou une note (avec un
+signifiant facultatif `*` ou `!`), de marquer une tâche comme terminée,
+migrée, planifiée ou abandonnée, de supprimer une entrée, d'afficher les
+tâches en cours, et de sauvegarder / charger le journal dans un fichier
+JSON. Les identifiants (uuid) peuvent être saisis partiellement (préfixe).
 
 ### Symboles du rapid logging (utilisés par l'affichage CLI)
 
@@ -67,19 +75,30 @@ cours. Les identifiants (uuid) peuvent être saisis partiellement (préfixe).
 | * | Signifiant : priorité |
 | ! | Signifiant : idée, inspiration |
 
+Les symboles d'état et de type sont portés par `entry.symbol` et rendus
+par `print(entry)`. Les signifiants sont portés par `entry.signifier`
+(validés par `SIGNIFIERS`, sinon `InvalidSignifierError`) et s'affichent
+collés après le symbole (`•* Ranger le bureau`) ; le menu les demande à
+la création de chaque entrée. Une tâche abandonnée s'affiche barrée :
+`~ ~~Ranger le bureau~~`.
+
 ### En bibliothèque
 
 ```python
 from datetime import time
 
-from bujo import Event, Journal, Note
+from bujo import Event, Journal, Note, load_journal, save_journal
 
 journal = Journal("Mon journal")
-task = journal.add_task("Ranger le bureau", "Trier les papiers")
+task = journal.add_task("Ranger le bureau", "Trier les papiers",
+                        signifier="*")
 journal.add_entry(Event("Réunion", at=time(10, 30)))
 journal.add_entry(Note("Idée de projet"))
 journal.complete_task(task.id)
 print(*journal.open_tasks(), sep="\n")
+
+save_journal(journal, "journal.json")
+journal = load_journal("journal.json")
 ```
 
 ## Documentation
@@ -97,11 +116,16 @@ Puis ouvrir `docs/_build/html/index.html`.
 
 ```bash
 docker run --rm bujo python -m pytest -v
+docker run --rm bujo python -m coverage run -m pytest
+docker run --rm bujo python -m coverage report --show-missing
 ```
 
-32 tests unitaires couvrent le modèle des entrées (`tests/test_entry.py`) et
-le journal (`tests/test_journal.py`) : cycle de vie des tâches, transitions
-interdites, cas d'erreur, recherche par nom.
+Les tests unitaires (`tests/test_entry.py`, `tests/test_journal.py`,
+`tests/test_persistence.py`, `tests/test_cli.py`) couvrent le modèle des
+entrées, le journal, la persistance et le menu : cycle de vie des tâches,
+signifiants, transitions interdites, aller-retour JSON, cas d'erreur,
+recherche par nom. La couverture est mesurée par `coverage` et imposée
+par le pipeline CI.
 
 ## Journalisation (logging)
 
@@ -117,7 +141,9 @@ Le pipeline GitLab CI (`.gitlab-ci.yml`, exécuté à chaque push) vérifie :
 
 1. le respect de PEP 8 (`flake8`) ;
 2. la présence des docstrings (`pydocstyle`) ;
-3. l'exécution de tous les tests unitaires (`pytest`).
+3. l'exécution de tous les tests unitaires sous `coverage`, avec un
+   seuil minimal de couverture (`--fail-under`) et le pourcentage
+   affiché dans GitLab.
 
 La configuration des outils (flake8, pydocstyle, pytest) est centralisée dans
 `setup.cfg`.
@@ -129,6 +155,7 @@ La configuration des outils (flake8, pydocstyle, pytest) est centralisée dans
 - ✅ Supprimer une entrée
 - ✅ Afficher les tâches en cours (symboles du rapid logging)
 - ✅ Cycle de vie : à faire, terminée, migrée, planifiée, abandonnée
+- ✅ Signifiants rapid logging : * priorité, ! idée (bibliothèque et menu)
 - ✅ Trois types d'entrées : tâches, événements (date/heure), notes
 - ✅ Identifiant unique par entrée, recherche par nom secondaire
 - ✅ POO : classe abstraite `Entry`, héritage, encapsulation
@@ -136,24 +163,17 @@ La configuration des outils (flake8, pydocstyle, pytest) est centralisée dans
 - ✅ Exceptions personnalisées (introuvable, nom vide, date invalide,
   transition d'état interdite)
 - ✅ Logs debug + erreurs dédiés
-- ✅ Tests pytest (cycle de vie, cas d'erreur)
+- ✅ Persistance JSON : sauvegarde et chargement à l'identique
+- ✅ Transitions complètes dans le menu : terminer, migrer, planifier, abandonner
+- ✅ Tests pytest (cycle de vie, cas d'erreur, persistance) et couverture intégrée à la CI
 - ✅ Documentation Sphinx
 - ✅ Pipeline CI à chaque push
 - ✅ Environnement reproductible (Docker + requirements.txt)
 
 ## Perspective d'amélioration
 
-Toutes les fonctionnalités du niveau 1 et la plupart des exigences
+Toutes les fonctionnalités du niveau 1 et la quasi-totalité des exigences
 techniques sont livrées (voir le statut ci-dessus). Il reste :
-
-### Fonctionnalités
-1. **Persistance** : module de sauvegarde / chargement du journal —
-   aujourd'hui les entrées vivent en mémoire et sont perdues à la fin
-   du programme
-2. Compléter le CLI avec les transitions encore réservées à la
-   bibliothèque : migrer, planifier et abandonner une tâche
-3. Mesurer la **couverture de tests** (`coverage`, déjà présent dans
-   `requirements.txt`) et l'intégrer au pipeline CI
 
 ### Exigences techniques
 1. Workflow Git avec **branches et Merge Requests** (les commits
