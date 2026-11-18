@@ -29,19 +29,21 @@ MENU = """
 DEFAULT_FILE = "journal.json"
 
 
-# "Vide le terminal.
 def clear_screen() -> None:
+    """Vide le terminal."""
     os.system("cls" if os.name == "nt" else "clear")
 
 
-# Affiche le menu des actions possibles.
 def show_choice() -> None:
+    """Affiche le menu des actions possibles."""
     print(MENU)
 
 
-# Lit le choix de l'utilisateur et exécute l'action associée.
-#   Retourne False pour quitter le programme, True sinon.
 def take_choice(journal: Journal) -> bool:
+    """Lit le choix de l'utilisateur et exécute l'action associée.
+
+    Retourne False pour quitter le programme, True sinon.
+    """
     choice = input("Votre choix : ").strip()
     try:
         if choice == "1":
@@ -106,14 +108,14 @@ def take_choice(journal: Journal) -> bool:
     return True
 
 
-# Demande un chemin de fichier, journal.json par défaut.
 def _ask_path(label: str) -> str:
+    """Demande un chemin de fichier, journal.json par défaut."""
     raw = input(f"{label} [{DEFAULT_FILE}] : ").strip()
     return raw or DEFAULT_FILE
 
 
-# Remplace le contenu de journal par celui du journal chargé.
 def _reload_into(journal: Journal, loaded: Journal) -> None:
+    """Remplace le contenu de journal par celui du journal chargé."""
     for entry_id in journal.ids():
         journal.remove_entry(entry_id)
     for entry_id in loaded.ids():
@@ -121,18 +123,19 @@ def _reload_into(journal: Journal, loaded: Journal) -> None:
     journal.name = loaded.name
 
 
-# Demande un signifiant facultatif (* ou !) et le retourne.
-#     Une réponse vide signifie « aucun signifiant ».
 def _ask_signifier() -> str | None:
+    """Demande un signifiant facultatif (* ou !) et le retourne.
 
+    Une réponse vide signifie « aucun signifiant ».
+    """
     raw = input(
         "Signifiant (* priorité, ! idée, Entrée = aucun) : "
     ).strip()
     return raw or None
 
 
-# Demande un identifiant (début ou entier) et le résout.
 def _ask_id(journal: Journal) -> str:
+    """Demande un identifiant (début ou entier) et le résout."""
     raw = input("Identifiant de l'entrée : ").strip()
     for entry_id in journal.ids():
         if entry_id == raw or entry_id.startswith(raw):
@@ -140,8 +143,8 @@ def _ask_id(journal: Journal) -> str:
     return raw
 
 
-# Point d'entrée : initialise les logs puis lance la boucle du menu.
 def main() -> None:
+    """Point d'entrée : initialise les logs puis lance la boucle du menu."""
     setup_logging()
     logger = logging.getLogger("bujo")
     logger.info("Démarrage du Bullet Journal.")
