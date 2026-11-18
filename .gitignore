@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Environnements
+.venv/
+venv/
+env/
+
+# Outils
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs de la bibliothèque
+bujo_debug.log
+bujo_error.log
